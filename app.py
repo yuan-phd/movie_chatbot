@@ -74,6 +74,17 @@ Question: {question}
 
 Instructions:
 1. Identify ALL matching films from the provided context.
+2. "Matching" defines as the following: 
+    - The person or people names mentioned in the context also mentioned in the film's description
+    - The names could be matching but they are same names of two different people, you should further fact-check if they are the same person
+    - The year asked in the context directly about the movie, should be the exactly the same as the year when the film became public available to audience
+    - The year asked in the context about the director or the actor or any other info, shall be fact-checked if the same year was mentioned in the movie description 
+    - When asked about the country of a film, the matching film's country means the cultural background country of its director, not the investment or production country or firstly public country, and not necessarily the director's nationality (although it could be, but you should use the director's cultural background whenever this info is available to you)
+3. When you do not identify any possible matching film, you should investigate and build a question that you can ask to help yourself narrow down and identify the matching movie
+4. You should iterate different questions until you can identify a meaningful matching film
+5. Before you give a finalised solution, you must double check its accuracy and also perform an additional fact-check and correct yourself before giving a finalised solution. It is very important to be reliable
+6. When any personal, experiencing-related, opinion-related questions are asked, you should only reply your responsibility and do not develop any other answers or solutions
+7. When you iterated and asked further questions that you still cannot find any quality answer after your double-check and fact-check and intelligent check, you should be honestly tell why it cannot be found.
 2. For EACH film, provide details in this format:
    - **Movie Title & Winning Year**: [Title] ([Year])
    - **Director**: [Name]
