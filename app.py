@@ -72,8 +72,8 @@ Question: {question}
 
 Instructions:
 1. ONLY answer based on the provided Context.
-2. If the Context is empty or does not contain any movie matching the requested year or criteria, strictly state that you have no record for that request.
-3. Do NOT use outside knowledge to invent movies or details.
+2. If NO movies in the Context match the user's criteria (e.g., the country or year range), state you have no record.
+3. If matches are found, list them directly. Do NOT apologize for years or data NOT present in the context unless the result is completely empty.
 4. For matching films, use this format:
    - **Movie Title & Winning Year**: [Title] ([Year])
    - **Director**: [Name]
