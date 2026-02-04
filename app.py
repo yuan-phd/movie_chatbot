@@ -118,7 +118,7 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# 7. SEARCH & INFERENCE LOGIC
+# 7. SEARCH & INFERENCE LOGIC (Fixed Logic Order)
 if user_input := st.chat_input("Ask about winners..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
@@ -142,21 +142,27 @@ if user_input := st.chat_input("Ask about winners..."):
             final_docs = [d for d in all_docs if int(d.metadata.get("year", 0)) == target_year]
 
     # C. Semantic Layer Fallback
-    if not final_docs:
-        if not logic_triggered:
-            final_docs = vector_db.similarity_search(user_input, k=15)
-        else:
-            pass
+    if not final_docs and not logic_triggered:
+        final_docs = vector_db.similarity_search(user_input, k=15)
 
-    # D. Keyword Refinement
-    if "japanese" in user_input.lower() and final_docs:
+    # D. Keyword Refinement (REVISED: General keyword matching for Korean, Japanese, etc.)
+    # This prevents sending non-relevant movies (like China/France) to the LLM
+    keywords_to_check = ["korean", "japanese", "chinese", "french", "swiss", "italian"]
+    active_keyword = next((k for k in keywords_to_check if k in user_input.lower()), None)
+    
+    if active_keyword and final_docs:
+        # Map keywords to metadata short-codes if necessary (e.g., 'korean' -> 'korea')
+        search_term = "japan" if active_keyword == "japanese" else active_keyword.replace("ese", "").replace("ean", "")
         final_docs = [
             d for d in final_docs 
-            if "japan" in str(d.metadata.get("country", "")).lower() 
-            or "japan" in d.page_content.lower()
+            if search_term in str(d.metadata.get("country", "")).lower() 
+            or search_term in d.page_content.lower()
         ]
 
-    # Context construction
+    # E. Context construction (Limiting to top 15 to prevent API errors)
+    if len(final_docs) > 15:
+        final_docs = final_docs[:15]
+
     if final_docs:
         context_text = "\n\n".join([
             f"TITLE: {d.metadata.get('title')}\nYEAR: {d.metadata.get('year')}\nDIRECTOR: {d.metadata.get('director')}\nCOUNTRY: {d.metadata.get('country')}\nURL: {d.metadata.get('url')}\nSUMMARY: {d.page_content}"
@@ -165,11 +171,15 @@ if user_input := st.chat_input("Ask about winners..."):
     else:
         context_text = ""
 
+    # F. Inference with Error Handling
     with st.chat_message("assistant"):
         with st.spinner("Analyzing Archives..."):
-            full_prompt = QA_CHAIN_PROMPT.format(context=context_text, question=user_input)
-            response = llm.invoke(full_prompt)
-            answer = response.content
-            st.markdown(answer)
-    
-    st.session_state.messages.append({"role": "assistant", "content": answer})
+            try:
+                full_prompt = QA_CHAIN_PROMPT.format(context=context_text, question=user_input)
+                response = llm.invoke(full_prompt)
+                answer = response.content
+                st.markdown(answer)
+                st.session_state.messages.append({"role": "assistant", "content": answer})
+            except Exception as e:
+                st.error("The search context is too large or the API is busy. Try a more specific year.")
+
