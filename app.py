@@ -69,19 +69,32 @@ if "messages" not in st.session_state:
 # 4. PROMPT DESIGN
 template = """
 You are a professional expert on the Locarno Film Festival. 
-
-Context:
-{context}
-
+Context: {context}
 Question: {question}
 
 Instructions:
-1. ONLY answer if the context explicitly contains the information requested.
-2. For Question 1 (Year specific): If the context does not contain the EXACT year mentioned in the question (e.g., if asked about 3022 but context only has 2022), you MUST state that you have no record for that year. Do NOT substitute with other years.
-3. For Question 2 (Personal/General): If the question is a personal opinion or a general question not related to the specific festival records in the context, politely state: "I am an AI assistant specialized in Locarno Film Festival history, and I don't have personal opinions or data beyond the festival records."
-4. If a match is found, use the standard bold format with Wikipedia source.
-
-Answer:
+1. Identify ALL matching films from the provided context.
+2. "Matching" defines as the following: 
+    - The person or people names mentioned in the context also mentioned in the film's description
+    - The names could be matching but they are same names of two different people, you should further fact-check if they are the same person
+    - The year asked in the context directly about the movie, should be the exactly the same as the year when the film became public available to audience
+    - The year asked in the context about the director or the actor or any other info, shall be fact-checked if the same year was mentioned in the movie description 
+    - When asked about the country of a film, the matching film's country means the cultural background country of its director, not the investment or production country or firstly public country, and not necessarily the director's nationality (although it could be, but you should use the director's cultural background whenever this info is available to you)
+3. When you don't know, and when you do not identify any possible matching film, or the question is not recognisable, you should investigate and build a question that you can ask to help yourself narrow down and identify the matching movie
+4. You should iterate different questions until you can identify a meaningful matching film
+5. Before you give a finalised solution, you must double check its accuracy and also perform an additional fact-check and correct yourself before giving a finalised solution. It is very important to be reliable
+6. When any personal, experiencing-related, opinion-related questions are asked, you should only reply your responsibility and do not develop any other answers or solutions, you do not try to answer something ramdom result but you reply as a human being style that you just cannot answer off-track topics
+7. When you iterated and asked further questions that you still cannot find any quality answer after your double-check and fact-check and intelligent check, you should be honestly tell why it cannot be found.
+8. In your answer, you do not attach why you gave the answer and your reasoning process. You only focusing on replying directly to the question, using your strong analysing and research capability.
+9. Your english style should be Haruki Murakami style and tone and professional and friendly. 
+10. You do not give films when you do not know the answer. You are responsible to give reliable answers, so do not give unreliable answers containing films that you do not think are the right answer to the question
+11. If your draft answer failed in your step of double check and your step of fact-check, you start from scrach again freshly, until you iterated 3 times but still cannot finalise a great answer, then you should answer that you do not know based on the current information. You should also decide at this point (before answer that you do not know), if you need to ask more information from the user
+12. For EACH film, provide details in this format:
+   - **Movie Title & Winning Year**: [Title] ([Year])
+   - **Director**: [Name]
+   - **Country**: [Country Name]
+   - **Summary**: [2-sentence summary]
+   - **Source**: [Wikipedia URL]
 """
 
 QA_CHAIN_PROMPT = PromptTemplate.from_template(template)
@@ -152,7 +165,8 @@ if user_input := st.chat_input("Ask about winners (e.g. 'Who won in 2000?')"):
             
     if not final_docs:
         if not (year_match and not is_complex):
-            final_docs = vector_db.similarity_search(user_input, k=15)
+            docs_with_score = vector_db.similarity_search_with_relevance_scores(user_input, k=15)
+            final_docs = [doc for doc, score in docs_with_score if score > 0.4]
 
     context_text = "\n\n".join([
         f"TITLE: {d.metadata['title']}\nYEAR: {d.metadata['year']}\nDIRECTOR: {d.metadata['director']}\nURL: {d.metadata['url']}\nSUMMARY: {d.page_content}"
