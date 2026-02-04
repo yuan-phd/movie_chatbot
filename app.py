@@ -69,29 +69,21 @@ if "messages" not in st.session_state:
 # 4. PROMPT DESIGN
 template = """
 You are a professional expert on the Locarno Film Festival. 
-Context: {context}
+
+Context:
+{context}
+
 Question: {question}
 
 Instructions:
-1. Identify ALL matching films from the provided context.
-2. "Matching" defines as the following: 
-    - The person or people names mentioned in the context also mentioned in the film's description
-    - The names could be matching but they are same names of two different people, you should further fact-check if they are the same person
-    - The year asked in the context directly about the movie, should be the exactly the same as the year when the film became public available to audience
-    - The year asked in the context about the director or the actor or any other info, shall be fact-checked if the same year was mentioned in the movie description 
-    - When asked about the country of a film, the matching film's country means the cultural background country of its director, not the investment or production country or firstly public country, and not necessarily the director's nationality (although it could be, but you should use the director's cultural background whenever this info is available to you)
-3. When you do not identify any possible matching film, you should investigate and build a question that you can ask to help yourself narrow down and identify the matching movie
-4. You should iterate different questions until you can identify a meaningful matching film
-5. Before you give a finalised solution, you must double check its accuracy and also perform an additional fact-check and correct yourself before giving a finalised solution. It is very important to be reliable
-6. When any personal, experiencing-related, opinion-related questions are asked, you should only reply your responsibility and do not develop any other answers or solutions
-7. When you iterated and asked further questions that you still cannot find any quality answer after your double-check and fact-check and intelligent check, you should be honestly tell why it cannot be found.
-2. For EACH film, provide details in this format:
-   - **Movie Title & Winning Year**: [Title] ([Year])
-   - **Director**: [Name]
-   - **Country**: [Country Name]
-   - **Summary**: [2-sentence summary]
-   - **Source**: [Wikipedia URL]
+1. ONLY answer if the context explicitly contains the information requested.
+2. For Question 1 (Year specific): If the context does not contain the EXACT year mentioned in the question (e.g., if asked about 3022 but context only has 2022), you MUST state that you have no record for that year. Do NOT substitute with other years.
+3. For Question 2 (Personal/General): If the question is a personal opinion or a general question not related to the specific festival records in the context, politely state: "I am an AI assistant specialized in Locarno Film Festival history, and I don't have personal opinions or data beyond the festival records."
+4. If a match is found, use the standard bold format with Wikipedia source.
+
+Answer:
 """
+
 QA_CHAIN_PROMPT = PromptTemplate.from_template(template)
 
 # 5. SIDEBAR: Detailed Portfolio Layout
@@ -142,17 +134,25 @@ if user_input := st.chat_input("Ask about winners (e.g. 'Who won in 2000?')"):
         st.markdown(user_input)
 
     # SEARCH LOGIC
+        # --- SEARCH LOGIC (REPLACEMENT) ---
     year_match = re.search(r"(\d{4})", user_input)
     is_complex = any(w in user_input.lower() for w in ["after", "since", "japanese", "china", "list", "all", "history"])
     
     final_docs = []
-    if year_match and not is_complex:
+    
+    if year_match:
         target_year = year_match.group(1)
         all_docs = vector_db.docstore._dict.values()
-        final_docs = [d for d in all_docs if d.metadata.get("year") == target_year]
-
+        exact_year_docs = [d for d in all_docs if d.metadata.get("year") == target_year]
+        
+        if exact_year_docs:
+            final_docs = exact_year_docs
+        elif not is_complex:
+            final_docs = []
+            
     if not final_docs:
-        final_docs = vector_db.similarity_search(user_input, k=15)
+        if not (year_match and not is_complex):
+            final_docs = vector_db.similarity_search(user_input, k=15)
 
     context_text = "\n\n".join([
         f"TITLE: {d.metadata['title']}\nYEAR: {d.metadata['year']}\nDIRECTOR: {d.metadata['director']}\nURL: {d.metadata['url']}\nSUMMARY: {d.page_content}"
