@@ -20,15 +20,20 @@ def load_assets():
 
 embeddings, vector_db, llm = load_assets()
 
-# 2. UI: CUSTOM CSS
+# 2. UI: CUSTOM CSS (FORCED GOLD TITLE)
 st.markdown(f"""
     <style>
-    /* Global font: Precise 16.3px */
-    html, body, [class*="st-"] {{
-        font-size: 101.875% !important;
+    [data-testid="stHeader"] {{
+        background-color: rgba(0,0,0,0) !important;
+    }}
+    
+    h1, #locarno-pardo-d-oro-expert {{
+        color: #FFD700 !important;
+        -webkit-text-fill-color: #FFD700 !important; 
+        font-weight: 700 !important;
+        font-size: 2.2rem !important;
     }}
 
-    /* MAIN AREA: White background with Black text */
     .stApp {{
         background-color: #FFFFFF !important;
     }}
@@ -36,28 +41,11 @@ st.markdown(f"""
         color: #000000 !important;
     }}
 
-    /* THE GOLDEN TITLE: Cinematic Gold Header */
-    .main-title {{
-        color: #FFD700 !important;
-        font-weight: 700 !important;
-        font-size: 2.2rem !important;
-        margin-bottom: 1rem !important;
-    }}
-
-    /* SIDEBAR: Widen by 15% (24rem) and Grey background */
     [data-testid="stSidebar"] {{
         background-color: #E6E9EF !important;
-        min-width: 24rem !important;
-        max-width: 24rem !important;
     }}
-    
-    /* SIDEBAR TEXT: Clear contrast for technical details */
     [data-testid="stSidebar"] * {{
         color: #31333F !important;
-    }}
-    [data-testid="stSidebar"] a {{
-        color: #31333F !important;
-        text-decoration: underline !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -132,7 +120,7 @@ with st.sidebar:
     st.caption(f"Index Status: {vector_db.index.ntotal} Verified Records")
 
 # 6. MAIN CONTENT
-st.markdown('<h1 class="main-title">🎬 Locarno Pardo d\'Oro Expert</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title" id="locarno-pardo-d-oro-expert">🎬 Locarno Pardo d\'Oro Expert</h1>', unsafe_allow_html=True)
 st.write("Specialized AI assistant for the official history of Golden Leopard winners.")
 
 # Display Chat History
