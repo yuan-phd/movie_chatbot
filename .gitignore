@@ -1,1 +1,16 @@
+__pycache__/
+*.pyc
+
 .env
+
+.DS_Store
+Thumbs.db
+
+ingest_*.py
+create_index.py
+ingest_debug.py
+
+.vscode/
+.idea/
+venv/
+env/
