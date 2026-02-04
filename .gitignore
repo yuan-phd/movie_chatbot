@@ -1,16 +1,11 @@
-__pycache__/
-*.pyc
+*
 
-.env
+!app.py
+!requirements.txt
+!locarno_enriched_data.json
+!locarno_winners.json
+!README.md
+!.gitignore
 
-.DS_Store
-Thumbs.db
-
-ingest_*.py
-create_index.py
-ingest_debug.py
-
-.vscode/
-.idea/
-venv/
-env/
+!faiss_index/
+!faiss_index/*
