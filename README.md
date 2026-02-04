@@ -25,10 +25,10 @@ An intelligent RAG (Retrieval-Augmented Generation) assistant specializing in th
    pip install -r requirements.txt
 3. Set up your .env file with your GROQ_API_KEY.
 4. Run the application:
-bash
+   ```bash
 streamlit run app.py
 
 ## Data Compliance
 - **Data is ethically sourced from Wikipedia's Golden Leopard archives via official APIs. All responses provide direct source links for verification.
 
-Developed by yuan-phd
+## Developed by yuan-phd
