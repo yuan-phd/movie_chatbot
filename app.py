@@ -141,7 +141,7 @@ if user_input := st.chat_input("Ask about winners (e.g. 'Who won in 2000?')"):
         final_docs = [d for d in all_docs if d.metadata.get("year") == target_year]
 
     if not final_docs:
-        final_docs = vector_db.similarity_search(user_input, k=8)
+        final_docs = vector_db.similarity_search(user_input, k=15)
 
     context_text = "\n\n".join([
         f"TITLE: {d.metadata['title']}\nYEAR: {d.metadata['year']}\nDIRECTOR: {d.metadata['director']}\nURL: {d.metadata['url']}\nSUMMARY: {d.page_content}"
