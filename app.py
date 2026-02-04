@@ -73,9 +73,10 @@ Question: {question}
 
 Instructions:
 1. ONLY answer based on the provided Context. 
-2. If multiple movies match, you MUST list EVERY one of them individually.
-3. If no matching movies exist in the Context, strictly state you have no record.
-4. DO NOT use a conversational summary. Use the EXACT format below for EACH film:
+2. If the user asks for a specific person (e.g., "Hong Sang-soo"), ONLY include movies in your list where that EXACT person is the director. 
+3. If multiple movies match, list them individually without duplicates.
+4. DO NOT include "related" directors or "similar" countries. If the director's name in the context is "Hong XX" and the user asked for "Hong Sang-soo", EXCLUDE "Hong XX".
+5. DO NOT use a conversational summary. Use the EXACT format below for EACH film:
 
 FORMAT PER MOVIE:
 - **Movie Title & Winning Year**: [Title] ([Year])
@@ -86,6 +87,7 @@ FORMAT PER MOVIE:
 
 ---
 Begin listing the matching films now:
+Output ONLY the list. Do not provide alternative formats or extra commentary.
 """
 
 QA_CHAIN_PROMPT = PromptTemplate.from_template(template)
@@ -99,6 +101,7 @@ with st.sidebar:
     - **Vector Store:** FAISS (Facebook AI Similarity Search)
     - **Embeddings:** all-MiniLM-L6-v2 (Sentence Transformers)
     - **Logic:** Hybrid Retrieval Strategy (Regex + Semantic)
+    - **Deduplication:** Regex-based Title Normalization
     """)
     st.markdown("### Data Compliance")
     st.markdown("""
@@ -125,65 +128,83 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# 7. SEARCH & INFERENCE LOGIC (Supports Single Year, Range "After", and Range "Between")
+# 7. SEARCH & INFERENCE LOGIC (Ultra-Precise Version)
 if user_input := st.chat_input("Ask about winners..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # A. Advanced Extraction: Find all 4-digit years
     years = re.findall(r"(\d{4})", user_input)
-    is_range_query = any(w in user_input.lower() for w in ["after", "since", "post", "recent", "history", "between", "from", "to", "-"])
+    is_range_query = any(w in user_input.lower() for w in ["after", "since", "post", "history", "between", "-"])
     
     all_docs = list(vector_db.docstore._dict.values())
     final_docs = []
     logic_triggered = False
 
-    # B. Enhanced Logic Layer
+    # A. Year Logic (Priority)
     if years:
         logic_triggered = True
-        # Convert found years to integers
-        year_ints = [int(y) for y in years]
-        
+        y_ints = [int(y) for y in years]
         for d in all_docs:
-            doc_year = int(d.metadata.get("year", 0))
-            
-            # Condition 1: Range "Between" (e.g., 1990 and 2000)
-            if len(year_ints) >= 2:
-                start_y, end_y = min(year_ints), max(year_ints)
-                if start_y <= doc_year <= end_y:
-                    final_docs.append(d)
-            
-            # Condition 2: Range "After" (e.g., after 1995)
-            elif is_range_query:
-                if doc_year > year_ints[0]:
-                    final_docs.append(d)
-            
-            # Condition 3: Exact Year (e.g., in 2015)
-            else:
-                if doc_year == year_ints[0]:
-                    final_docs.append(d)
+            try:
+                doc_year = int(str(d.metadata.get("year", 0)))
+                if len(y_ints) >= 2:
+                    if min(y_ints) <= doc_year <= max(y_ints): final_docs.append(d)
+                elif is_range_query:
+                    if doc_year > y_ints[0]: final_docs.append(d)
+                else:
+                    if doc_year == y_ints[0]: final_docs.append(d)
+            except: continue
 
-    # C. Semantic Fallback
+    # B. Semantic Search (Fallback)
     if not final_docs and not logic_triggered:
-        final_docs = vector_db.similarity_search(user_input, k=15)
+        final_docs = vector_db.similarity_search(user_input, k=20)
 
-    # D. Keyword Refinement (General for Korean, Japanese, etc.)
-    keywords_to_check = ["korean", "japanese", "chinese", "french", "swiss", "italian"]
-    active_keyword = next((k for k in keywords_to_check if k in user_input.lower()), None)
+        # C. ULTIMATE PRECISION FILTER
+    query_lower = user_input.lower()
+    # Extract only important words (names/countries) from query
+    stop_words = {"movie", "winner", "director", "the", "after", "since", "between", "from", "show", "list"}
+    query_parts = {p for p in query_lower.split() if p not in stop_words and len(p) > 2}
     
-    if active_keyword and final_docs:
-        search_term = "japan" if active_keyword == "japanese" else active_keyword.replace("ese", "").replace("ean", "")
-        final_docs = [
-            d for d in final_docs 
-            if search_term in str(d.metadata.get("country", "")).lower() 
-            or search_term in d.page_content.lower()
-        ]
+    refined_results = []
+    seen_titles = set()
 
-    # E. Context construction (Safe Cap)
-    if len(final_docs) > 15:
-        final_docs = final_docs[:15]
+    for d in final_docs:
+        m = d.metadata
+        # Normalize Title for strict de-duplication
+        raw_title = str(m.get('title', ''))
+        clean_title = re.sub(r'\W+', '', raw_title).lower() # Remove all non-alphanumeric
+        
+        if clean_title in seen_titles: continue
+        
+        director = str(m.get('director', '')).lower()
+        country = str(m.get('country', '')).lower()
+        
+        keep = True
+        # 1. Name Match Logic: If searching for "Hong Sang-soo", we want high confidence
+        if query_parts and not logic_triggered:
+            # Check how many words from the query match the director's name
+            match_count = sum(1 for p in query_parts if p in director or p in clean_title)
+            
+            # HARD RULE: If the query has multiple specific words (like Hong + Sang), 
+            # the result MUST match more than just one common syllable if possible.
+            # But for simplicity: if no parts match, drop it.
+            if match_count == 0:
+                keep = False
+            
+            # 2. Cross-Country Guard: If "Korean" is mentioned, filter out China/Japan
+            if "korean" in query_lower and "korea" not in country:
+                keep = False
+            if "chinese" in query_lower and "china" not in country:
+                keep = False
 
+        if keep:
+            refined_results.append(d)
+            seen_titles.add(clean_title)
+
+    final_docs = refined_results[:15]
+
+    # D. Context Construction
     if final_docs:
         context_text = "\n\n".join([
             f"TITLE: {d.metadata.get('title')}\nYEAR: {d.metadata.get('year')}\nDIRECTOR: {d.metadata.get('director')}\nCOUNTRY: {d.metadata.get('country')}\nURL: {d.metadata.get('url')}\nSUMMARY: {d.page_content}"
@@ -192,14 +213,13 @@ if user_input := st.chat_input("Ask about winners..."):
     else:
         context_text = ""
 
-    # F. Inference
+    # E. Inference
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing Archives..."):
+        with st.spinner("Refining search..."):
             try:
                 full_prompt = QA_CHAIN_PROMPT.format(context=context_text, question=user_input)
                 response = llm.invoke(full_prompt)
-                answer = response.content
-                st.markdown(answer)
-                st.session_state.messages.append({"role": "assistant", "content": answer})
+                st.markdown(response.content)
+                st.session_state.messages.append({"role": "assistant", "content": response.content})
             except Exception as e:
-                st.error("API error or context too large. Please try a narrower search.")
+                st.error("API Limit reached. Please try again.")
