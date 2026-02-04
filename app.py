@@ -63,6 +63,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # 4. PROMPT DESIGN
+# 4. PROMPT DESIGN (Format Enforcement Version)
 template = """
 You are a professional expert on the Locarno Film Festival history.
 Context:
@@ -71,16 +72,22 @@ Context:
 Question: {question}
 
 Instructions:
-1. ONLY answer based on the provided Context.
-2. If NO movies in the Context match the user's criteria (e.g., the country or year range), state you have no record.
-3. If matches are found, list them directly. Do NOT apologize for years or data NOT present in the context unless the result is completely empty.
-4. For matching films, use this format:
-   - **Movie Title & Winning Year**: [Title] ([Year])
-   - **Director**: [Name]
-   - **Country**: [Country Name]
-   - **Summary**: [Summary]
-   - **Source**: [URL]
+1. ONLY answer based on the provided Context. 
+2. If multiple movies match, you MUST list EVERY one of them individually.
+3. If no matching movies exist in the Context, strictly state you have no record.
+4. DO NOT use a conversational summary. Use the EXACT format below for EACH film:
+
+FORMAT PER MOVIE:
+- **Movie Title & Winning Year**: [Title] ([Year])
+- **Director**: [Name]
+- **Country**: [Country Name]
+- **Summary**: [2-sentence summary]
+- **Source**: [Wikipedia URL]
+
+---
+Begin listing the matching films now:
 """
+
 QA_CHAIN_PROMPT = PromptTemplate.from_template(template)
 
 # 5. SIDEBAR (Fully Restored)
