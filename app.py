@@ -125,40 +125,54 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# 7. SEARCH & INFERENCE LOGIC (Fixed Logic Order)
+# 7. SEARCH & INFERENCE LOGIC (Supports Single Year, Range "After", and Range "Between")
 if user_input := st.chat_input("Ask about winners..."):
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # A. Extract intent and years
-    year_match = re.search(r"(\d{4})", user_input)
-    is_range_query = any(w in user_input.lower() for w in ["after", "since", "post", "recent", "history"])
+    # A. Advanced Extraction: Find all 4-digit years
+    years = re.findall(r"(\d{4})", user_input)
+    is_range_query = any(w in user_input.lower() for w in ["after", "since", "post", "recent", "history", "between", "from", "to", "-"])
     
     all_docs = list(vector_db.docstore._dict.values())
     final_docs = []
     logic_triggered = False
 
-    # B. Logic Layer: Hard Filtering for Years
-    if year_match:
-        target_year = int(year_match.group(1))
+    # B. Enhanced Logic Layer
+    if years:
         logic_triggered = True
-        if is_range_query:
-            final_docs = [d for d in all_docs if int(d.metadata.get("year", 0)) > target_year]
-        else:
-            final_docs = [d for d in all_docs if int(d.metadata.get("year", 0)) == target_year]
+        # Convert found years to integers
+        year_ints = [int(y) for y in years]
+        
+        for d in all_docs:
+            doc_year = int(d.metadata.get("year", 0))
+            
+            # Condition 1: Range "Between" (e.g., 1990 and 2000)
+            if len(year_ints) >= 2:
+                start_y, end_y = min(year_ints), max(year_ints)
+                if start_y <= doc_year <= end_y:
+                    final_docs.append(d)
+            
+            # Condition 2: Range "After" (e.g., after 1995)
+            elif is_range_query:
+                if doc_year > year_ints[0]:
+                    final_docs.append(d)
+            
+            # Condition 3: Exact Year (e.g., in 2015)
+            else:
+                if doc_year == year_ints[0]:
+                    final_docs.append(d)
 
-    # C. Semantic Layer Fallback
+    # C. Semantic Fallback
     if not final_docs and not logic_triggered:
         final_docs = vector_db.similarity_search(user_input, k=15)
 
-    # D. Keyword Refinement (REVISED: General keyword matching for Korean, Japanese, etc.)
-    # This prevents sending non-relevant movies (like China/France) to the LLM
+    # D. Keyword Refinement (General for Korean, Japanese, etc.)
     keywords_to_check = ["korean", "japanese", "chinese", "french", "swiss", "italian"]
     active_keyword = next((k for k in keywords_to_check if k in user_input.lower()), None)
     
     if active_keyword and final_docs:
-        # Map keywords to metadata short-codes if necessary (e.g., 'korean' -> 'korea')
         search_term = "japan" if active_keyword == "japanese" else active_keyword.replace("ese", "").replace("ean", "")
         final_docs = [
             d for d in final_docs 
@@ -166,7 +180,7 @@ if user_input := st.chat_input("Ask about winners..."):
             or search_term in d.page_content.lower()
         ]
 
-    # E. Context construction (Limiting to top 15 to prevent API errors)
+    # E. Context construction (Safe Cap)
     if len(final_docs) > 15:
         final_docs = final_docs[:15]
 
@@ -178,7 +192,7 @@ if user_input := st.chat_input("Ask about winners..."):
     else:
         context_text = ""
 
-    # F. Inference with Error Handling
+    # F. Inference
     with st.chat_message("assistant"):
         with st.spinner("Analyzing Archives..."):
             try:
@@ -188,5 +202,4 @@ if user_input := st.chat_input("Ask about winners..."):
                 st.markdown(answer)
                 st.session_state.messages.append({"role": "assistant", "content": answer})
             except Exception as e:
-                st.error("The search context is too large or the API is busy. Try a more specific year.")
-
+                st.error("API error or context too large. Please try a narrower search.")
