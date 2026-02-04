@@ -29,6 +29,6 @@ An intelligent RAG (Retrieval-Augmented Generation) assistant specializing in th
    streamlit run app.py
    
 ## Data Compliance
-- **Data is ethically sourced from Wikipedia's Golden Leopard archives via official APIs. All responses provide direct source links for verification.
+- Data is ethically sourced from Wikipedia's Golden Leopard archives via official APIs. All responses provide direct source links for verification.
 
 ## Developed by yuan-phd
