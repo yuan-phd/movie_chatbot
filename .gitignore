@@ -1,5 +1,7 @@
+# 1. Ignore everything by default
 *
 
+# 2. Explicitly allow project files
 !app.py
 !requirements.txt
 !locarno_enriched_data.json
@@ -7,5 +9,20 @@
 !README.md
 !.gitignore
 
+# 3. Allow Docker configuration
+!Dockerfile
+!.dockerignore
+
+# 4. Allow database files (FAISS)
 !faiss_index/
 !faiss_index/*
+
+# 5. ABSOLUTELY EXCLUDE SENSITIVE AND JUNK FILES
+# Even if "!" is used above, these rules will double-check
+.env
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+.vscode/
+.git/

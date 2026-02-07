@@ -1,0 +1,25 @@
+# Ignore sensitive files
+.env
+
+# Ignore Python and OS noise
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.DS_Store
+
+# Ignore environment and IDE folders
+.venv/
+env/
+venv/
+.vscode/
+.idea/
+
+# Ignore version control
+.git/
+.gitignore
+
+# Optional: Ignore source data to keep image small
+# *.json
+# README.md

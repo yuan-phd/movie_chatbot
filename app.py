@@ -8,8 +8,20 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import PromptTemplate
 
 # 1. SETUP & CONFIGURATION
-load_dotenv()
+import os
+from dotenv import load_dotenv
+
+# Try to load .env, but won't fail if the file is missing in Docker
+load_dotenv() 
+
+# Prioritize environment variables injected by Docker
 api_key = os.getenv("GROQ_API_KEY")
+
+# Safety Check: If no key is found, show a clear error in the UI
+if not api_key:
+    st.error("Missing GROQ_API_KEY. Please set it in your environment variables.")
+    st.stop()
+
 
 @st.cache_resource
 def load_assets():
@@ -134,75 +146,76 @@ if user_input := st.chat_input("Ask about winners..."):
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    years = re.findall(r"(\d{4})", user_input)
-    is_range_query = any(w in user_input.lower() for w in ["after", "since", "post", "history", "between", "-"])
-    
-    all_docs = list(vector_db.docstore._dict.values())
-    final_docs = []
-    logic_triggered = False
+    # --- 1. st.status to show retrieval logic ---
+    with st.status("Analyzing Search Logic...", expanded=True) as status:
+        years = re.findall(r"(\d{4})", user_input)
+        is_range_query = any(w in user_input.lower() for w in ["after", "since", "post", "history", "between", "-"])
+        
+        all_docs = list(vector_db.docstore._dict.values())
+        final_docs = []
+        logic_triggered = False
 
-    # A. Year Logic (Priority)
-    if years:
-        logic_triggered = True
-        y_ints = [int(y) for y in years]
-        for d in all_docs:
-            try:
-                doc_year = int(str(d.metadata.get("year", 0)))
-                if len(y_ints) >= 2:
-                    if min(y_ints) <= doc_year <= max(y_ints): final_docs.append(d)
-                elif is_range_query:
-                    if doc_year > y_ints[0]: final_docs.append(d)
-                else:
-                    if doc_year == y_ints[0]: final_docs.append(d)
-            except: continue
+        # A. Year Logic (Priority)
+        if years:
+            st.write(f"📅 Triggered Year Logic: {years}")
+            logic_triggered = True
+            y_ints = [int(y) for y in years]
+            for d in all_docs:
+                try:
+                    doc_year = int(str(d.metadata.get("year", 0)))
+                    if len(y_ints) >= 2:
+                        if min(y_ints) <= doc_year <= max(y_ints): final_docs.append(d)
+                    elif is_range_query:
+                        if doc_year > y_ints[0]: final_docs.append(d)
+                    else:
+                        if doc_year == y_ints[0]: final_docs.append(d)
+                except: continue
 
-    # B. Semantic Search (Fallback)
-    if not final_docs and not logic_triggered:
-        final_docs = vector_db.similarity_search(user_input, k=20)
+        # B. Semantic Search (Fallback)
+        if not final_docs and not logic_triggered:
+            st.write("🧠 Triggered Semantic Search (Vector DB)")
+            final_docs = vector_db.similarity_search(user_input, k=20)
 
         # C. ULTIMATE PRECISION FILTER
-    query_lower = user_input.lower()
-    # Extract only important words (names/countries) from query
-    stop_words = {"movie", "winner", "director", "the", "after", "since", "between", "from", "show", "list"}
-    query_parts = {p for p in query_lower.split() if p not in stop_words and len(p) > 2}
-    
-    refined_results = []
-    seen_titles = set()
+        query_lower = user_input.lower()
+        # Extract only important words (names/countries) from query
+        stop_words = {"movie", "winner", "director", "the", "after", "since", "between", "from", "show", "list"}
+        query_parts = {p for p in query_lower.split() if p not in stop_words and len(p) > 2}
+        
+        refined_results = []
+        seen_titles = set()
 
-    for d in final_docs:
-        m = d.metadata
-        # Normalize Title for strict de-duplication
-        raw_title = str(m.get('title', ''))
-        clean_title = re.sub(r'\W+', '', raw_title).lower() # Remove all non-alphanumeric
-        
-        if clean_title in seen_titles: continue
-        
-        director = str(m.get('director', '')).lower()
-        country = str(m.get('country', '')).lower()
-        
-        keep = True
-        # 1. Name Match Logic: If searching for "Hong Sang-soo", we want high confidence
-        if query_parts and not logic_triggered:
-            # Check how many words from the query match the director's name
-            match_count = sum(1 for p in query_parts if p in director or p in clean_title)
+        st.write("🔍 Applying Precision Filters (Name/Country/Dedup)...")
+        for d in final_docs:
+            m = d.metadata
+            # Normalize Title for strict de-duplication
+            raw_title = str(m.get('title', ''))
+            clean_title = re.sub(r'\W+', '', raw_title).lower() # Remove all non-alphanumeric
             
-            # HARD RULE: If the query has multiple specific words (like Hong + Sang), 
-            # the result MUST match more than just one common syllable if possible.
-            # But for simplicity: if no parts match, drop it.
-            if match_count == 0:
-                keep = False
+            if clean_title in seen_titles: continue
             
-            # 2. Cross-Country Guard: If "Korean" is mentioned, filter out China/Japan
-            if "korean" in query_lower and "korea" not in country:
-                keep = False
-            if "chinese" in query_lower and "china" not in country:
-                keep = False
+            director = str(m.get('director', '')).lower()
+            country = str(m.get('country', '')).lower()
+            
+            keep = True
+            # 1. Name Match Logic
+            if query_parts and not logic_triggered:
+                match_count = sum(1 for p in query_parts if p in director or p in clean_title)
+                if match_count == 0:
+                    keep = False
+                
+                # 2. Cross-Country Guard
+                if "korean" in query_lower and "korea" not in country:
+                    keep = False
+                if "chinese" in query_lower and "china" not in country:
+                    keep = False
 
-        if keep:
-            refined_results.append(d)
-            seen_titles.add(clean_title)
+            if keep:
+                refined_results.append(d)
+                seen_titles.add(clean_title)
 
-    final_docs = refined_results[:15]
+        final_docs = refined_results[:15]
+        status.update(label="Search Strategy Applied", state="complete", expanded=False)
 
     # D. Context Construction
     if final_docs:
@@ -215,6 +228,13 @@ if user_input := st.chat_input("Ask about winners..."):
 
     # E. Inference
     with st.chat_message("assistant"):
+        # --- 2. st.expander to show data source ---
+        if final_docs:
+            with st.expander("📚 Source Documents"):
+                for doc in final_docs:
+                    st.write(f"**{doc.metadata.get('title')}** ({doc.metadata.get('year')})")
+                    st.caption(f"Director: {doc.metadata.get('director')} | Country: {doc.metadata.get('country')}")
+
         with st.spinner("Refining search..."):
             try:
                 full_prompt = QA_CHAIN_PROMPT.format(context=context_text, question=user_input)

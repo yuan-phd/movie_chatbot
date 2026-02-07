@@ -1,9 +1,7 @@
 streamlit
-langchain
-langchain-core
-langchain-community
-langchain-huggingface
-langchain-groq
-faiss-cpu
 python-dotenv
+langchain-groq
+langchain-huggingface
+langchain-community
+faiss-cpu
 sentence-transformers
