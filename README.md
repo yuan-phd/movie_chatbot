@@ -23,9 +23,17 @@ An intelligent RAG (Retrieval-Augmented Generation) assistant specializing in th
 
 ## Docker Deployment
 - **PREREQUISITES:** 
- A valid GROQ API Key.
+A valid GROQ API Key.
 Create a file named '.env' in the root directory and add:
 GROQ_API_KEY=your_actual_groq_api_key_here
+
+Ensure your directory contains:
+- app.py (Main logic)
+- Dockerfile (Build instructions)
+- .dockerignore (Excludes local junk)
+- requirements.txt (Python dependencies)
+- .env (Your private API Key)
+- faiss_index/ (Vector database folder)
 
 - **Run the Docker:** 
 *Note: This may take a few minutes as it installs Torch and other dependencies.*
