@@ -1,4 +1,4 @@
-# 🎬 Locarno Pardo d'Oro Expert
+# 🎬 Chatbot for Movie Search
 
 An intelligent RAG (Retrieval-Augmented Generation) assistant specializing in the history of the **Locarno Film Festival's Golden Leopard** winners.
 
@@ -13,10 +13,12 @@ An intelligent RAG (Retrieval-Augmented Generation) assistant specializing in th
 - **Frontend:** Streamlit
 
 ## Key Engineering Features
-- **Hybrid Retrieval Strategy:** Combines **Regex-based hard filtering** for specific year lookups with **Semantic Search** for thematic and descriptive queries (optimized with `k=15` for high recall).
-- **Self-Explaining Metadata:** Enhanced vector chunks with explicit entity labels (Director, Country, Year) to improve retrieval accuracy for complex queries.
-- **Cost-Effective Design:** Implemented a **Zero-Token Chat History** using Streamlit's local session state, maintaining a seamless UI experience without incurring extra API costs.
-- **Data Integrity:** Fully automated ingestion pipeline from Wikipedia Open Data with forced source citations to eliminate AI hallucinations.
+- **Hybrid Retrieval Strategy with Execution Logic Feedback:** Combines **Regex-based hard filtering** for precise year/range lookups with **Semantic Search** for thematic queries. Integrated a **real-time execution status** (st.status) to provide transparency on which retrieval logic was triggered.
+- **Multi-Stage Precision Filtering:** Implemented an automated "Guardrail" layer that cross-references user queries with metadata (Director, Country, Year) to eliminate hallucinations. Includes a **strict cross-country filter** (e.g., ensuring "Korean" queries only return South Korean cinema).
+- **Source-Grounded Transparency:** Enhanced user trust by implementing an **Evidence Expander (st.expander)** that displays raw vector chunks and Wikipedia source URLs before final inference, ensuring every answer is fully traceable.
+- **Production-Ready Containerization:** Fully Dockerized environment using a lightweight, CPU-optimized Python build. Includes a secure injection mechanism for API keys via environment variables, ensuring zero-risk deployment on platforms like AWS or local servers.
+- **Zero-Cost State Management:** Utilizes Streamlit's local session state for chat history and result caching, maintaining a seamless UI experience without incurring extra token costs for history storage.
+- **Data Integrity Pipeline:** Leverages Wikipedia Open Data with an automated ingestion pipeline, strictly enforcing source citations to eliminate AI hallucinations and ensure factual accuracy.
 
 ## Data Compliance
 - Data is ethically sourced from Wikipedia's Golden Leopard archives via official APIs. All responses provide direct source links for verification.
