@@ -18,17 +18,20 @@ An intelligent RAG (Retrieval-Augmented Generation) assistant specializing in th
 - **Cost-Effective Design:** Implemented a **Zero-Token Chat History** using Streamlit's local session state, maintaining a seamless UI experience without incurring extra API costs.
 - **Data Integrity:** Fully automated ingestion pipeline from Wikipedia Open Data with forced source citations to eliminate AI hallucinations.
 
-## Local Installation
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-3. Set up your .env file with your GROQ_API_KEY.
-4. Run the application:
-   ```bash
-   streamlit run app.py
-   
 ## Data Compliance
 - Data is ethically sourced from Wikipedia's Golden Leopard archives via official APIs. All responses provide direct source links for verification.
+
+## Docker Deployment
+- **PREREQUISITES:** 
+ A valid GROQ API Key.
+Create a file named '.env' in the root directory and add:
+GROQ_API_KEY=your_actual_groq_api_key_here
+
+- **Run the Docker:** 
+*Note: This may take a few minutes as it installs Torch and other dependencies.*
+   ```bash
+   docker build -t locarno-bot-app .
+   docker run -p 8501:8501 --env-file .env locarno-bot-app
+URL: http://localhost:8501
 
 ## Developed by yuan-phd
